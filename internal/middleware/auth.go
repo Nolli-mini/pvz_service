@@ -6,28 +6,37 @@ import (
 	"pvz-service/internal/api"
 	"pvz-service/internal/auth"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
-var jwtAuth *auth.JWTAuth
+var (
+	jwtAuth     *auth.JWTAuth
+	jwtAuthOnce sync.Once
+)
 
-func InitJWT() {
-	secret := os.Getenv("JWT_SECRET")
-	if secret == "" {
-		secret = "default-secret-key-change-in-production"
-	}
-	jwtAuth = auth.NewJWTAuth(secret)
+// initJWTAuth инициализирует JWT аутентификацию (ленивая инициализация)
+func initJWTAuth() {
+	jwtAuthOnce.Do(func() {
+		secret := os.Getenv("JWT_SECRET")
+		if secret == "" {
+			secret = "test-secret-key-for-testing"
+		}
+		jwtAuth = auth.NewJWTAuth(secret)
+	})
 }
 
-// GenerateToken - генерация токена
+// GenerateToken генерирует JWT токен
 func GenerateToken(userID uuid.UUID, role api.UserRole) (string, error) {
+	initJWTAuth()
 	return jwtAuth.GenerateToken(userID, role)
 }
 
-// AuthMiddleware - проверка токена
+// AuthMiddleware проверяет токен
 func AuthMiddleware() gin.HandlerFunc {
+	initJWTAuth()
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -56,7 +65,7 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
-// RequireModerator - проверка роли модератора
+// RequireModerator проверяет роль модератора
 func RequireModerator() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
@@ -69,7 +78,7 @@ func RequireModerator() gin.HandlerFunc {
 	}
 }
 
-// RequireEmployee - проверка роли сотрудника
+// RequireEmployee проверяет роль сотрудника
 func RequireEmployee() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("role")
@@ -80,24 +89,4 @@ func RequireEmployee() gin.HandlerFunc {
 		}
 		c.Next()
 	}
-}
-
-// GetUserIDFromContext - получить userID из контекста
-func GetUserIDFromContext(c *gin.Context) (uuid.UUID, bool) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		return uuid.Nil, false
-	}
-	id, ok := userID.(uuid.UUID)
-	return id, ok
-}
-
-// GetRoleFromContext - получить роль из контекста
-func GetRoleFromContext(c *gin.Context) (api.UserRole, bool) {
-	role, exists := c.Get("role")
-	if !exists {
-		return "", false
-	}
-	r, ok := role.(api.UserRole)
-	return r, ok
 }

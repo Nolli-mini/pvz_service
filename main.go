@@ -27,6 +27,8 @@ func main() {
 	logger.Log.Info("Database connected")
 
 	router := gin.Default()
+	router.SetTrustedProxies(nil)
+
 	repo := repository.NewRepository(db)
 
 	go func() {

@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"io"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -10,6 +11,12 @@ var Log *logrus.Logger
 
 func Init(environment string) {
 	Log = logrus.New()
+
+	if environment == "test" {
+		Log.SetOutput(io.Discard)
+		Log.SetLevel(logrus.PanicLevel)
+		return
+	}
 
 	Log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp:   true,
